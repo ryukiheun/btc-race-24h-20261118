@@ -48,7 +48,7 @@ def make_bot():
     closes = deque(maxlen=LOOKBACK_BARS)
     entry_ref = None   # close of the first batch where a position appears
     peak = None        # highest close seen while holding
-    trades_done = 0    # buy decisions made so far
+    trades_done = 0    # fills seen so far (a rejected order is not a trade)
     consec_stops = 0   # trailing-stop exits in a row (a take-profit resets it)
 
     def buy_all_cash(cash):
@@ -79,6 +79,9 @@ def make_bot():
             if entry_ref is None:
                 entry_ref = close
                 peak = close
+                trades_done += 1  # count the fill, not the order: a buy the
+                # harness rejects (max_slippage) never becomes a position,
+                # so it must not stop the no-trade dip relaxation below.
             if close > peak:
                 peak = close
             if close * 100 >= entry_ref * 101:
@@ -105,7 +108,6 @@ def make_bot():
             dip = ENTRY_DIP
         if len(closes) >= LOOKBACK_BARS and close * 1000 <= max(closes) * dip:
             if state.cash > MIN_NOTIONAL:
-                trades_done += 1
                 return buy_all_cash(state.cash)
         return []
 
